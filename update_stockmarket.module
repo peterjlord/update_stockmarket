@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Contains hooks implemeted.
+ */
+use Drupal\Component\Serialization\Json;
+use Drupal\Core\Block\BlockBase;
+
+/**
+ * Implements hook_cron().
+ */
+function update_stockmarket_cron() {
+  $blocks = \Drupal::entityTypeManager()
+    ->getStorage('block_content')
+    ->loadByProperties( array('type' => 'stock_exchange_rate_card') );
+	foreach ($blocks as $block) {
+
+    $value = $block->field_symbol->value;
+    $url = 'http://dev.markitondemand.com/MODApis/Api/v2/Quote/json?symbol='. $value. '&callback=myFunction';
+
+    $response = \Drupal::httpClient()->get($url, array('headers' => array('Accept' => 'text/plain')));
+    $data = (string) $response->getBody();
+    $decoded_json_data = Json::decode($data);
+
+    $change = $decoded_json_data['Change'];
+    $last = $decoded_json_data['LastPrice'];
+
+
+		// Save updated values to looped block
+    $block->set('field_change',$change);
+    $block->set('field_last_price',$last);
+    $block->save();
+	}
+}
